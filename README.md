@@ -157,6 +157,7 @@ Para solicitar autorización de uso, modificación, distribución o integración
 **IOJG, AARB**
 
 🔬 **Perfil académico:**
+
 🔬 Google Scholar:: https://scholar.google.com/citations?user=bjL0fNwAAAAJ&hl=es&oi=ao
 
 🔬 Google Scholar:  https://scholar.google.com/citations?user=amsOGRIAAAAJ&hl=es&oi=ao
