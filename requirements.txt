@@ -1,0 +1,9 @@
+streamlit
+PyMuPDF
+python-docx
+openpyxl
+pandas
+python-dotenv
+openai
+anthropic
+requests
