@@ -110,7 +110,7 @@ La herramienta **no sustituye el análisis crítico del investigador**. Los resu
 
 **Extractor Académico** fue desarrollado por:
 
-### IOJG
+### IOJG & AARB
 
 © **IOJG & AARB — Todos los derechos reservados.**
 
