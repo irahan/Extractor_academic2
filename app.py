@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 from services.text_processor import process_file
 from services.excel_generator import generate_excel
+from config import Config
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -55,17 +56,55 @@ keywords = st.text_input(
 )
 
 # Subida de archivos
-st.subheader("📂 Subir Artículos")
+col_header, col_limit = st.columns([3, 2])
+with col_header:
+    st.subheader("📂 Subir Artículos")
+with col_limit:
+    max_files = st.radio(
+        "Límite máximo de artículos:",
+        options=Config.MAX_FILES_OPTIONS,
+        index=0,
+        horizontal=True,
+        format_func=lambda x: f"{x} artículos",
+        help="Límite máximo de documentos a procesar en esta ejecución (5 o 10 artículos)."
+    )
+
 uploaded_files = st.file_uploader(
-    "Selecciona uno o varios archivos PDF o DOCX", 
+    f"Selecciona hasta {max_files} archivos PDF o DOCX", 
     type=['pdf', 'docx'], 
-    accept_multiple_files=True
+    accept_multiple_files=True,
+    help=f"Solo se permite procesar hasta un máximo de {max_files} artículos simultáneamente."
 )
 
 if uploaded_files:
-    st.info(f"📁 Has seleccionado {len(uploaded_files)} archivo(s) para procesar.")
+    num_files = len(uploaded_files)
+    files_to_process = None
     
-    if st.button("🚀 Iniciar Búsqueda Semántica y Procesamiento", type="primary"):
+    if num_files > max_files:
+        st.error(
+            f"🚫 **Límite superado:** Has seleccionado **{num_files}** archivo(s), "
+            f"pero el límite configurado es de **{max_files} artículos**."
+        )
+        if max_files < 10 and num_files <= 10:
+            st.info("💡 **Sugerencia:** Puedes cambiar el selector de arriba a **10 artículos** para procesar todos los archivos seleccionados.")
+            
+        st.warning(
+            f"⚠️ Por favor, elimina al menos **{num_files - max_files}** archivo(s) usando la **✖** en la lista de arriba, "
+            f"o utiliza el botón a continuación para procesar solo los primeros {max_files}."
+        )
+        
+        col_btn1, col_btn2 = st.columns([1, 1])
+        with col_btn1:
+            st.button("🚀 Iniciar Búsqueda Semántica y Procesamiento", type="primary", disabled=True, help=f"Deshabilitado: excede el límite de {max_files} artículos.")
+        with col_btn2:
+            if st.button(f"✂️ Procesar solo los primeros {max_files} artículos"):
+                files_to_process = uploaded_files[:max_files]
+    else:
+        st.info(f"📁 Has seleccionado {num_files} de máximo {max_files} archivo(s) permitido(s).")
+        if st.button("🚀 Iniciar Búsqueda Semántica y Procesamiento", type="primary"):
+            files_to_process = uploaded_files
+    
+    if files_to_process:
         progress_bar = st.progress(0)
         status_text = st.empty()
         
@@ -75,8 +114,8 @@ if uploaded_files:
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             
-            for i, file in enumerate(uploaded_files):
-                status_text.text(f"⏳ Procesando ({i+1}/{len(uploaded_files)}): {file.name} (excluyendo referencias y traduciendo si aplica)...")
+            for i, file in enumerate(files_to_process):
+                status_text.text(f"⏳ Procesando ({i+1}/{len(files_to_process)}): {file.name} (excluyendo referencias y traduciendo si aplica)...")
                 
                 # Guardar el archivo temporalmente
                 file_path = temp_path / file.name
@@ -98,7 +137,7 @@ if uploaded_files:
                     errors += 1
                 
                 # Actualizar barra de progreso
-                progress_bar.progress((i + 1) / len(uploaded_files))
+                progress_bar.progress((i + 1) / len(files_to_process))
             
             status_text.text("📊 Generando archivo Excel con los resultados y traducciones...")
             
@@ -106,7 +145,7 @@ if uploaded_files:
             if results:
                 excel_path = temp_path / "articulos_busqueda_semantica.xlsx"
                 stats = {
-                    "total": len(uploaded_files),
+                    "total": len(files_to_process),
                     "procesados": len(results),
                     "errores": errors,
                     "modelo": ai_provider,

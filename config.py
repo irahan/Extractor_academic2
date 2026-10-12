@@ -26,6 +26,10 @@ class Config:
     
     ALLOWED_EXTENSIONS = {'pdf', 'docx'}
     
+    # Límite de subida de archivos (5 o 10 artículos)
+    MAX_FILES_OPTIONS = [5, 10]
+    DEFAULT_MAX_FILES = int(os.getenv('DEFAULT_MAX_FILES', 5))
+    
     # Configuración de IA
     OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
     OPENAI_API_BASE = os.getenv('OPENAI_API_BASE')
