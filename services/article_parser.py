@@ -36,6 +36,59 @@ class ArticleAnalyzer:
         """
         pass
 
+def ensure_spanish_translations(parsed: dict, text: str) -> dict:
+    """
+    Garantiza que si el documento está en inglés, los campos en español ('nombre_es',
+    'resumen_es', 'puntos_clave_es') estén traducidos fielmente y no permanezcan en inglés
+    ni se queden como 'No identificado automáticamente' si el campo original sí tiene contenido.
+    """
+    if not parsed:
+        return parsed
+
+    idioma = parsed.get("idioma")
+    if not idioma or idioma not in ("Inglés", "Español"):
+        idioma = "Inglés" if detect_language(text) == 'en' else "Español"
+        parsed["idioma"] = idioma
+
+    if idioma == "Inglés":
+        # Título
+        nombre = parsed.get("nombre", "")
+        nombre_es = parsed.get("nombre_es", "")
+        if nombre and nombre != "No identificado automáticamente":
+            if not nombre_es or nombre_es == "No identificado automáticamente" or nombre_es == nombre:
+                parsed["nombre_es"] = translate_to_spanish(nombre)
+        else:
+            parsed["nombre_es"] = "No identificado automáticamente"
+
+        # Resumen
+        resumen = parsed.get("resumen", "")
+        resumen_es = parsed.get("resumen_es", "")
+        if resumen and resumen != "No identificado automáticamente":
+            if not resumen_es or resumen_es == "No identificado automáticamente" or resumen_es == resumen:
+                parsed["resumen_es"] = translate_to_spanish(resumen)
+        else:
+            parsed["resumen_es"] = "No identificado automáticamente"
+
+        # Puntos clave
+        puntos = parsed.get("puntos_clave", [])
+        puntos_es = parsed.get("puntos_clave_es", [])
+        if puntos and puntos != ["No identificado automáticamente"]:
+            if not puntos_es or puntos_es == ["No identificado automáticamente"] or puntos_es == puntos:
+                parsed["puntos_clave_es"] = translate_points_to_spanish(puntos)
+        else:
+            parsed["puntos_clave_es"] = ["No identificado automáticamente"]
+    else:
+        # En español
+        if "nombre_es" not in parsed or not parsed["nombre_es"] or parsed["nombre_es"] == "No identificado automáticamente":
+            parsed["nombre_es"] = parsed.get("nombre", "No identificado automáticamente")
+        if "resumen_es" not in parsed or not parsed["resumen_es"] or parsed["resumen_es"] == "No identificado automáticamente":
+            parsed["resumen_es"] = parsed.get("resumen", "No identificado automáticamente")
+        if "puntos_clave_es" not in parsed or not parsed["puntos_clave_es"] or parsed["puntos_clave_es"] == ["No identificado automáticamente"]:
+            parsed["puntos_clave_es"] = parsed.get("puntos_clave", ["No identificado automáticamente"])
+
+    return parsed
+
+
 class LLMArticleAnalyzer(ArticleAnalyzer):
     def __init__(self, api_key, base_url=None, model_name="gpt-3.5-turbo-0125"):
         self.model_name = model_name
@@ -125,17 +178,7 @@ class LLMArticleAnalyzer(ArticleAnalyzer):
             parsed = json.loads(content)
             parsed["pasajes_semanticos"] = semantic_matches
             
-            # Asegurar consistencia de campos traducidos
-            if "nombre_es" not in parsed:
-                parsed["nombre_es"] = parsed.get("nombre", "")
-            if "resumen_es" not in parsed:
-                parsed["resumen_es"] = parsed.get("resumen", "")
-            if "puntos_clave_es" not in parsed:
-                parsed["puntos_clave_es"] = parsed.get("puntos_clave", [])
-            if "idioma" not in parsed:
-                parsed["idioma"] = "Inglés" if detect_language(text) == 'en' else "Español"
-                
-            return parsed
+            return ensure_spanish_translations(parsed, text)
         except Exception as e:
             logger.error(f"Error en LLMArticleAnalyzer: {e}")
             raise
@@ -229,16 +272,7 @@ class AnthropicArticleAnalyzer(ArticleAnalyzer):
             parsed = json.loads(content.strip())
             parsed["pasajes_semanticos"] = semantic_matches
             
-            if "nombre_es" not in parsed:
-                parsed["nombre_es"] = parsed.get("nombre", "")
-            if "resumen_es" not in parsed:
-                parsed["resumen_es"] = parsed.get("resumen", "")
-            if "puntos_clave_es" not in parsed:
-                parsed["puntos_clave_es"] = parsed.get("puntos_clave", [])
-            if "idioma" not in parsed:
-                parsed["idioma"] = "Inglés" if detect_language(text) == 'en' else "Español"
-                
-            return parsed
+            return ensure_spanish_translations(parsed, text)
         except Exception as e:
             logger.error(f"Error en AnthropicArticleAnalyzer: {e}")
             raise
@@ -299,16 +333,7 @@ class LocalArticleAnalyzer(ArticleAnalyzer):
             parsed = json.loads(data.get("response", "{}"))
             parsed["pasajes_semanticos"] = semantic_matches
             
-            if "nombre_es" not in parsed:
-                parsed["nombre_es"] = parsed.get("nombre", "")
-            if "resumen_es" not in parsed:
-                parsed["resumen_es"] = parsed.get("resumen", "")
-            if "puntos_clave_es" not in parsed:
-                parsed["puntos_clave_es"] = parsed.get("puntos_clave", [])
-            if "idioma" not in parsed:
-                parsed["idioma"] = "Inglés" if detect_language(text) == 'en' else "Español"
-                
-            return parsed
+            return ensure_spanish_translations(parsed, text)
         except Exception as e:
             logger.error(f"Error en LocalArticleAnalyzer: {e}")
             raise
@@ -399,23 +424,4 @@ class RuleBasedArticleAnalyzer(ArticleAnalyzer):
             else:
                 data["puntos_clave"] = ["No identificado automáticamente"]
 
-        # 6. Generación de traducción al español si está en inglés
-        if data["idioma"] == "Inglés":
-            logger.info("El artículo está en inglés. Generando traducción al español...")
-            if data["nombre"] != "No identificado automáticamente":
-                data["nombre_es"] = translate_to_spanish(data["nombre"])
-            else:
-                data["nombre_es"] = data["nombre"]
-
-            if data["resumen"] != "No identificado automáticamente":
-                data["resumen_es"] = translate_to_spanish(data["resumen"])
-            else:
-                data["resumen_es"] = data["resumen"]
-
-            data["puntos_clave_es"] = translate_points_to_spanish(data["puntos_clave"])
-        else:
-            data["nombre_es"] = data["nombre"]
-            data["resumen_es"] = data["resumen"]
-            data["puntos_clave_es"] = data["puntos_clave"]
-            
-        return data
+        return ensure_spanish_translations(data, text)
