@@ -6,9 +6,8 @@ import datetime
 
 def generate_excel(data_list, output_path, stats=None):
     """
-    Genera el archivo Excel con formato profesional.
-    data_list: lista de diccionarios con las claves:
-    'Artículo', 'Nombre', 'Autor', 'Año', 'Resumen', 'Punto clave más relevantes'
+    Genera el archivo Excel con formato profesional, incluyendo los textos
+    originales y su respectiva traducción al español si el documento está en inglés.
     """
     wb = openpyxl.Workbook()
     
@@ -16,7 +15,19 @@ def generate_excel(data_list, output_path, stats=None):
     ws = wb.active
     ws.title = "Artículos"
     
-    headers = ["Artículo", "Nombre", "Autor", "Año", "Resumen", "Punto clave más relevantes"]
+    headers = [
+        "Artículo", 
+        "Idioma", 
+        "Nombre (Original)", 
+        "Nombre (Español)", 
+        "Autor", 
+        "Año", 
+        "Resumen (Original)", 
+        "Resumen (Español)", 
+        "Punto clave más relevantes (Original)", 
+        "Puntos clave (Español)", 
+        "Referencias Excluidas"
+    ]
     ws.append(headers)
     
     # Estilos
@@ -38,24 +49,33 @@ def generate_excel(data_list, output_path, stats=None):
         cell.alignment = center_alignment
         cell.border = thin_border
     
-    ws.row_dimensions[1].height = 30
+    ws.row_dimensions[1].height = 32
     
     # Agregar datos
     for row_idx, data in enumerate(data_list, start=2):
+        refs_status = "Sí (Excluidas)" if data.get("Referencias_Excluidas") else "No detectadas"
+        idioma_raw = data.get("Idioma", "Español")
+        idioma_label = "Inglés (Traducido al español)" if idioma_raw == "Inglés" else "Español"
+        
         row = [
             data.get("Artículo", ""),
+            idioma_label,
             data.get("Nombre", ""),
+            data.get("Nombre_ES", data.get("Nombre", "")),
             data.get("Autor", ""),
             data.get("Año", ""),
             data.get("Resumen", ""),
-            data.get("Punto clave más relevantes", "")
+            data.get("Resumen_ES", data.get("Resumen", "")),
+            data.get("Punto clave más relevantes", ""),
+            data.get("Puntos_Clave_ES", data.get("Punto clave más relevantes", "")),
+            refs_status
         ]
         ws.append(row)
         
         # Formato de celdas de datos
-        for col_num in range(1, 7):
+        for col_num in range(1, 12):
             cell = ws.cell(row=row_idx, column=col_num)
-            cell.alignment = wrap_alignment
+            cell.alignment = center_alignment if col_num in (1, 2, 6, 11) else wrap_alignment
             cell.border = thin_border
             cell.font = Font(size=10, name="Calibri")
             
@@ -65,12 +85,17 @@ def generate_excel(data_list, output_path, stats=None):
     
     # Ajustar ancho de columnas
     column_widths = {
-        'A': 15,
-        'B': 45,
-        'C': 35,
-        'D': 12,
-        'E': 80,
-        'F': 80
+        'A': 18, # Artículo
+        'B': 22, # Idioma
+        'C': 40, # Nombre Original
+        'D': 40, # Nombre Español
+        'E': 30, # Autor
+        'F': 12, # Año
+        'G': 65, # Resumen Original
+        'H': 65, # Resumen Español
+        'I': 70, # Puntos clave Original
+        'J': 70, # Puntos clave Español
+        'K': 20  # Referencias Excluidas
     }
     
     for col_letter, width in column_widths.items():
@@ -79,11 +104,10 @@ def generate_excel(data_list, output_path, stats=None):
     # Congelar panel (primera fila)
     ws.freeze_panes = "A2"
     
-    # Crear Tabla con Autofiltro
-    # Verificar que hay datos para hacer la tabla
+    # Crear Tabla con Autofiltro si hay datos
     if data_list:
         max_row = len(data_list) + 1
-        tab = Table(displayName="TablaArticulos", ref=f"A1:F{max_row}")
+        tab = Table(displayName="TablaArticulos", ref=f"A1:K{max_row}")
         style = TableStyleInfo(name="TableStyleMedium9", showFirstColumn=False,
                                showLastColumn=False, showRowStripes=True, showColumnStripes=False)
         tab.tableStyleInfo = style
@@ -95,7 +119,9 @@ def generate_excel(data_list, output_path, stats=None):
     
     info_data = [
         ["Fecha de procesamiento", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")],
-        ["Versión de la aplicación", "1.0.0"]
+        ["Versión de la aplicación", "2.1.0 (Buscador Semántico & Traducción)"],
+        ["Filtro de referencias", "Exclusión activa de bibliografía en búsqueda"],
+        ["Soporte de idiomas", "Detección de idioma y traducción automática a español"]
     ]
     
     if stats:
@@ -103,18 +129,17 @@ def generate_excel(data_list, output_path, stats=None):
             ["Número total de artículos", stats.get("total", 0)],
             ["Artículos procesados", stats.get("procesados", 0)],
             ["Artículos con errores", stats.get("errores", 0)],
-            ["Modelo de IA utilizado", stats.get("modelo", "Configurado en .env")]
+            ["Modelo de IA / Motor utilizado", stats.get("modelo", "Semántico Local")],
+            ["Consulta semántica realizada", stats.get("consulta", "Ninguna")]
         ])
         
     for row in info_data:
         ws_info.append(row)
         
-    # Formato simple hoja info
     for cell in ws_info[1]:
         cell.font = Font(bold=True)
-    ws_info.column_dimensions['A'].width = 25
-    ws_info.column_dimensions['B'].width = 40
+    ws_info.column_dimensions['A'].width = 30
+    ws_info.column_dimensions['B'].width = 50
     
-    # Guardar
     wb.save(output_path)
     return output_path

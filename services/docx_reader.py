@@ -1,12 +1,19 @@
-import docx
 import logging
 
 logger = logging.getLogger(__name__)
+
+try:
+    import docx
+except ImportError:
+    docx = None
 
 def extract_text_from_docx(file_path):
     """
     Extrae el texto de un archivo DOCX.
     """
+    if docx is None:
+        raise ImportError("El módulo 'python-docx' no está instalado. Ejecute 'pip install python-docx' para procesar archivos DOCX.")
+
     text = ""
     try:
         doc = docx.Document(file_path)
@@ -21,7 +28,7 @@ def extract_text_from_docx(file_path):
             if para_text:
                 text += para_text + "\n\n"
                 
-        # Extraer texto de tablas (opcional pero útil)
+        # Extraer texto de tablas
         for table in doc.tables:
             for row in table.rows:
                 row_data = []
@@ -36,7 +43,7 @@ def extract_text_from_docx(file_path):
             logger.warning(f"El archivo {file_path} está vacío o no contiene texto.")
             return None, metadata
             
-        return text, metadata
+        return text.strip(), metadata
     except Exception as e:
         logger.error(f"Error al leer DOCX {file_path}: {e}")
         raise
